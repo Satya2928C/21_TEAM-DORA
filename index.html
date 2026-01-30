@@ -324,12 +324,17 @@ async function searchCensys() {
   document.getElementById('censys-result').innerText = result;
 }
 
-async function phoneLookup() {
-            const number = document.getElementById('number').value;
-            if (!number) { alert('Please enter a phone number'); return; }
-            const result = await postData('/phone_lookup', { number, plain: true });
-            displayResult(result);
-        }
+async function lookupPhone() {
+  const number = document.getElementById('phone-input').value;
+  if (!number) { alert('Please enter a phone number'); return; }
+  const response = await fetch('/phone_lookup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ number, plain: true })
+  });
+  const result = await response.text();
+  document.getElementById('phone-result').innerText = result;
+}
 
 async function trackBlockchain() {
   const network = document.getElementById('blockchain-network').value;
