@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Visual OSINT Tool</title>
+
+<style>
+:root {
+    --bg:#0a0a12;--card:#121220;--text:#e0e0ff;--muted:#a0a0c0;
+    --border:#2a2a4a;
+    --primary:#6a5af9;--danger:#ff4d6d;--success:#20bf6b;
+    --accent:#00c9a7;--neon-blue:#00eeff;--neon-purple:#bd00ff;--neon-pink:#ff00c8;
+    --radius:16px;--transition:all .3s ease;
+    --shadow:0 14px 30px rgba(0,0,0,.3);
+    --glow:0 0 15px rgba(106,90,249,.7);
+}
+*{box-sizing:border-box;font-family:'Segoe UI',system-ui,sans-serif}
+body{
+    margin:0;
+    background:linear-gradient(135deg,#0a0a1a,#12122a,#1a1a3a,#000);
+    background-size:400% 400%;
+    animation:bgShift 25s ease infinite;
+    color:var(--text);min-height:100vh
+}
+@keyframes bgShift{
+    0%{background-position:0% 50%}
+    50%{background-position:100% 50%}
+    100%{background-position:0% 50%}
+}
+#particleCanvas{position:fixed;inset:0;z-index:-1;pointer-events:none}
+.container{max-width:1000px;margin:auto;padding:20px;display:flex;justify-content:center}
+.hero{
+    background:rgba(18,18,32,.75);
+    backdrop-filter:blur(20px);
+    border-radius:var(--radius);
+    padding:20px;
+    width:100%;
+    max-width:800px;
+    box-shadow:var(--shadow);
+    border:1px solid rgba(106,90,249,.3)
+}
+h2{
+    text-align:center;
+    background:linear-gradient(90deg,var(--neon-blue),var(--neon-purple),var(--neon-pink));
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent
+}
+h4{text-align:center;color:var(--muted);font-weight:400;font-size:.8rem}
+.status{
+    margin:12px 0;padding:8px;text-align:center;
+    border:1px solid rgba(106,90,249,.4);
+    border-radius:6px;
+    box-shadow:var(--glow);
+    font-size:.8rem
+}
+.toolbar,.extra-actions{
+    display:flex;gap:12px;justify-content:center;margin:16px 0;flex-wrap:wrap
+}
+.btn{
+    padding:10px 18px;border:none;border-radius:8px;
+    color:#fff;font-weight:600;cursor:pointer;transition:var(--transition)
+}
+.btn-primary{background:linear-gradient(135deg,var(--primary),var(--neon-purple))}
+.btn-danger{background:linear-gradient(135deg,var(--danger),#ff2d55)}
+.file-picker{
+    display:flex;gap:12px;align-items:center;
+    background:rgba(18,18,32,.8);
+    padding:12px;border-radius:10px;
+    border:1px solid rgba(106,90,249,.4)
+}
+.file-input{display:none}
+.file-btn{
+    background:linear-gradient(135deg,var(--accent),var(--primary));
+    padding:8px 14px;border-radius:6px;cursor:pointer
+}
+.file-name{font-size:.8rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.section{
+    opacity:0;transform:translateY(10px);
+    transition:var(--transition);
+    padding:12px;margin-bottom:12px;
+    background:rgba(18,18,32,.7);
+    border-radius:10px;
+    border:1px solid rgba(106,90,249,.3)
+}
+.section.visible{opacity:1;transform:none}
+a{color:var(--neon-blue);text-decoration:none}
+</style>
+</head>
+
+<body>
+<canvas id="particleCanvas"></canvas>
+
+<div class="container">
+<div class="hero">
+
+<p><b>⚠️ Results show visually and contextually similar media only.</b></p>
+
+<h2>Visual OSINT Scraper</h2>
+<h4>This tool does not confirm identity, accuracy, or authenticity.</h4>
+
+<form id="uploadForm" method="POST" action="/" enctype="multipart/form-data">
+    <div class="file-picker">
+        <input class="file-input" id="fileInput" type="file" name="file" required>
+        <label class="file-btn" for="fileInput">Choose File</label>
+        <span class="file-name" id="fileName">No file selected</span>
+    </div>
+
+    <div class="toolbar">
+        <button class="btn btn-primary" type="submit">Run OSINT</button>
+        <button class="btn btn-danger" type="button" onclick="resetAll()">Reset Workspace</button>
+    </div>
+</form>
+
+<p class="muted">Supported formats: JPG, PNG, MP4, AVI, MOV, MKV</p>
+
+<!-- ✅ REPLACED FEATURE -->
+<div class="extra-actions" id="pdfContainer" style="display:none">
+    <a id="pdfLink" class="btn btn-primary" download>Download PDF Report</a>
+</div>
+
+<hr>
+
+<div id="status" class="status">Status: Idle</div>
+<div id="result"></div>
+
+</div>
+</div>
+
+<script>
+/* ---------- PARTICLE NETWORK ---------- */
+class ParticleNetwork{
+constructor(){
+this.c=document.getElementById("particleCanvas");
+this.x=this.c.getContext("2d");
+this.p=[];
+this.resize=()=>{this.c.width=innerWidth;this.c.height=innerHeight}
+this.resize();window.addEventListener("resize",this.resize);
+for(let i=0;i<90;i++)this.p.push({x:Math.random()*innerWidth,y:Math.random()*innerHeight,vx:(Math.random()-.5),vy:(Math.random()-.5)});
+this.animate()
+}
+animate(){
+this.x.clearRect(0,0,this.c.width,this.c.height);
+for(let o of this.p){
+o.x+=o.vx;o.y+=o.vy;
+if(o.x<0||o.x>this.c.width)o.vx*=-1;
+if(o.y<0||o.y>this.c.height)o.vy*=-1;
+this.x.beginPath();this.x.arc(o.x,o.y,2,0,Math.PI*2);
+this.x.fillStyle="rgba(106,90,249,.8)";this.x.fill()
+}
+requestAnimationFrame(()=>this.animate())
+}}
+new ParticleNetwork();
+
+/* ---------- OSINT LOGIC ---------- */
+const form=document.getElementById("uploadForm"),
+statusDiv=document.getElementById("status"),
+resultDiv=document.getElementById("result"),
+fileInput=document.getElementById("fileInput"),
+fileName=document.getElementById("fileName"),
+pdfContainer=document.getElementById("pdfContainer"),
+pdfLink=document.getElementById("pdfLink");
+
+fileInput.onchange=()=>fileName.textContent=fileInput.files[0]?.name||"No file selected";
+
+function renderValue(v){
+if(typeof v==="string"&&v.startsWith("http"))return `<a href="${v}" target="_blank">${v}</a>`;
+if (Array.isArray(v)) return v.map(renderValue).join(", ");
+if(typeof v==="object"&&v)return Object.entries(v).map(([k,val])=>`<div><b>${k}</b>: ${renderValue(val)}</div>`).join("");
+return v;
+}
+function renderReport(r){
+return Object.keys(r).map(k=>`<div class="section"><h3>${k}</h3>${renderValue(r[k])}</div>`).join("");
+}
+
+form.onsubmit=e=>{
+e.preventDefault();
+statusDiv.textContent="Status: Processing...";
+resultDiv.innerHTML="";
+pdfContainer.style.display="none";
+
+fetch("/",{method:"POST",body:new FormData(form)})
+.then(r=>r.json())
+.then(d=>{
+statusDiv.textContent="Status: Completed";
+if(d.report_pdf){
+pdfLink.href=d.report_pdf;
+pdfContainer.style.display="flex";
+}
+resultDiv.innerHTML=d.report?renderReport(d.report):JSON.stringify(d,null,2);
+document.querySelectorAll(".section").forEach((s,i)=>setTimeout(()=>s.classList.add("visible"),i*100));
+})
+.catch(()=>statusDiv.textContent="Status: Error");
+};
+
+function resetAll(){
+if(!confirm("Reset workspace?"))return;
+fetch("/reset",{method:"POST"}).then(()=>{
+form.reset();
+resultDiv.innerHTML="";
+statusDiv.textContent="Status: Idle";
+fileName.textContent="No file selected";
+pdfContainer.style.display="none";
+});
+}
+</script>
+</body>
+</html>
